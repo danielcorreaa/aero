@@ -1,5 +1,10 @@
 version: '3.2'
 
+volumes:
+  esdata1:
+  kibana-plugins:
+  kibana-bundle:
+ 
 services:
   # https://github.com/wurstmeister/zookeeper-docker
   zookeeper:
@@ -34,8 +39,7 @@ services:
       KAFKA_LOG4J_LOGGERS: >- 
         kafka.controller=INFO,
         kafka.producer.async.DefaultEventHandler=INFO,
-        state.change.logger=INFO
-
+        state.change.logger=INFO   
     ports:
     - 9092:9092
     depends_on:
@@ -51,6 +55,60 @@ services:
     ports:
       - 3306:3306
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: "dani"   
+      MYSQL_DATABASE: "DEV_MAGENTO_07"      
     volumes:
-      - /home/daniel/Desenvolvimento/Docker/Volumes/MySql:/var/lib/mysql
+      - /var/lib/mysql:/var/lib/mysql
+    networks:
+      - mysql-compose-network
+      
+  adminer:
+    image: adminer
+    ports:
+      - 8484:8080
+    networks:
+      - mysql-compose-network      
+
+  elasticsearch:
+    image: "docker.elastic.co/elasticsearch/elasticsearch:7.7.0"
+    container_name: elasticsearch
+    environment:
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"     
+      - discovery.type=single-node
+    expose:
+      - "9200"
+    ports:
+      - "9200:9200"
+    volumes:
+      - /var/elasticsearch/data:/var/elasticsearch/data
+      
+  nifi:
+    container_name: nifi
+    image: apache/nifi:latest
+    restart: unless-stopped
+    volumes:
+      - /var/nifi:/var/nifi
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+      - elasticsearch
+    environment:
+      - NIFI_WEB_HTTP_PORT=8080
+      
+  mongodb:   
+    image: mongo:latest
+    container_name: mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+    ports:
+      - 27017:27017
+    volumes:
+      - /data/db:/data/db
+networks: 
+  mysql-compose-network:
+    driver: bridge
